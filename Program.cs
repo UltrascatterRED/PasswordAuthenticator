@@ -16,7 +16,6 @@ namespace PasswordAuthenticator
 			{
 				Menu.RunMain(out exitApp);
 			}
-			string temp = "&P1rateP3te&";
 		}
 		
 		public static string ToBinary(byte[] data)

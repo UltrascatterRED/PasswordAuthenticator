@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Markup;
 
 namespace PasswordAuthenticator
 {
@@ -14,7 +15,7 @@ namespace PasswordAuthenticator
 		private static readonly Dictionary<int, MenuOption> Options = new()
 		{
 			{1, new MenuOption("Login", Login) },
-			{2, new MenuOption("Create Account", CreateAcct) },
+			{2, new MenuOption("Create Profile", CreateProfile) },
 			{3, new MenuOption("Reset Password", ResetPass) },
 			{4, new MenuOption("Regenerate hash function", RegenRabin)},
 			{5, new MenuOption("Exit", null) }
@@ -27,6 +28,7 @@ namespace PasswordAuthenticator
 		private static string? Password;
 		public static void LoadUserRecords()
 		{
+			UserRecords.Clear();
 			StreamReader rdr = new StreamReader(UserRecordsPath);
 			string[] fields;
 			while (!rdr.EndOfStream)
@@ -36,6 +38,7 @@ namespace PasswordAuthenticator
 				fields = thisLine.Split(",");
 				UserRecords.Add(new UserRecord(fields[0], ulong.Parse(fields[1])));
 			}
+			rdr.Close();
 		}
 		public static void RunMain(out bool exitApp)
 		{
@@ -61,8 +64,7 @@ namespace PasswordAuthenticator
 					exitApp = true;
 					break;
 				case 2:
-                    //CreateAcct();
-                    Console.WriteLine("NOT IMPLEMENTED");
+                    CreateProfile();
                     break;
 				case 3:
 					//ResetPass();
@@ -77,21 +79,21 @@ namespace PasswordAuthenticator
 					break;
 			}
         }
-		public static void Login()
+		private static void Login()
 		{
             
 			int maxAttempts = 5;
 			for(int i = 0; i < maxAttempts; i++)
 			{
-				Console.Write("Username:\t");
+				Console.Write("Username: ");
 				Username = Console.ReadLine();
-				Console.Write("Password:\t");
-				Password = Console.ReadLine();
+				Console.Write("Password: ");
+				Password = GetPass();
 				foreach (UserRecord record in UserRecords)
 				{
 					if (Username == record.Username && RabinHash(Password) == record.Hash)
 					{
-						Console.WriteLine("Login Success!");
+						Console.WriteLine("\nLogin Success!");
 						return;
 					}
 				}
@@ -99,27 +101,55 @@ namespace PasswordAuthenticator
 				Console.WriteLine("Invalid Username or Password.");
 			}
             Console.WriteLine("Allowed attempts exceeded.");
+			ClearIntermediates();
         }
-		public static void CreateAcct()
+		private static void CreateProfile()
 		{
-
+			StreamWriter wrtr = new StreamWriter(UserRecordsPath, true);
+			string pass1;
+			string pass2;
+			bool validInput = false;
+			while (!validInput)
+			{
+				Console.Write("New Username: ");
+				Username = Console.ReadLine();
+				Console.Write("Password: ");
+				pass1 = GetPass();
+				Console.Write("\nConfirm Password: ");
+				pass2 = GetPass();
+				if (pass1 == pass2 && !string.IsNullOrEmpty(pass2) && !string.IsNullOrEmpty(Username))
+				{
+					validInput = true;
+					Password = pass2;
+					wrtr.WriteLine($"{Username},{RabinHash(Password)}");
+                    Console.WriteLine($"\nSuccessfully created profile for {Username}");
+                }
+				else
+				{
+                    Console.WriteLine("\nInvalid credential format. Username and Password must not be empty.\n" +
+						" Maybe your passwords didn't match?");
+                }
+			}
+			ClearIntermediates();
+			wrtr.Close();
+			LoadUserRecords();
 		}
 		// regenerate Rabin primes method? (write output product to file for persistence)
-		// this method would also need to rehash all existing passwords
-		public static void RegenRabin()
+		// this method would also need to force users to change their passwords, as the old hashes would become useless
+		private static void RegenRabin()
 		{
 
 		}
-		public static void ResetPass()
+		private static void ResetPass()
 		{
 
 		}
-		public static byte[] ToByteArray(string input, Encoding encoding)
+		private static byte[] ToByteArray(string input, Encoding encoding)
 		{
 			return encoding.GetBytes(input);
 		}
 		// hash method
-		public static ulong RabinHash(string str)
+		private static ulong RabinHash(string str)
 		{
 			if (str == null) return 0;
 			byte[] bytes = ToByteArray(str, Program.encoding);
@@ -133,6 +163,26 @@ namespace PasswordAuthenticator
 			numToHash = (ulong)Math.Pow(numToHash, 2);
 			finalHash = numToHash % (Program.RabinProduct);
 			return finalHash;
+		}
+		// hides user input from screen
+		private static string GetPass()
+		{
+			string? password = null;
+			while (true)
+			{
+				var key = System.Console.ReadKey(true);
+				if (key.Key == ConsoleKey.Enter)
+					break;
+				password += key.KeyChar;
+			}
+			return password;
+		}
+		// clears values of all intermediate variables
+		private static void ClearIntermediates()
+		{
+			UserInput = null;
+			Username = null;
+			Password = null;
 		}
 	}
 }
